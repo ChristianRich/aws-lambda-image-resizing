@@ -1,0 +1,171 @@
+{
+  "name": "image-resizer",
+  "version": "1.0.0",
+  "description": "AWS Lambda / S3 on-the-fly image resizing using npm-sharp",
+  "scripts": {
+    "build:lint": "eslint src/ test/",
+    "build:clean": "rimraf dist/",
+    "build:compile": "serverless webpack",
+    "build": "npm run install-modules && npm run build-package",
+    "package": "serverless package",
+    "deploy": "serverless deploy",
+    "deploy:tst": "serverless deploy --aws-profile tst",
+    "start": "babel-node src/api-local.js -r dotenv/config",
+    "test": "npm run build:lint && npm run test:unit",
+    "test:unit": "cross-env NODE_ENV=test nyc mocha --recursive test/unit",
+    "install-modules": "docker run -v `pwd`:`pwd` -w `pwd` -i -t lambci/lambda:build-nodejs8.10 npm install sharp",
+    "build-package": "zip -r package.zip *"
+  },
+  "nyc": {
+    "check-coverage": true,
+    "all": true,
+    "lines": 85,
+    "statements": 85,
+    "functions": 85,
+    "branches": 85,
+    "include": [
+      "src"
+    ],
+    "require": [
+      "babel-register"
+    ],
+    "cache": true,
+    "sourceMap": false,
+    "instrument": false,
+    "reporter": [
+      "text",
+      "html"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianRich/aws-lambda-image-resizing.git"
+  },
+  "eslintConfig": {
+    "parser": "babel-eslint",
+    "extends": [
+      "airbnb-base"
+    ],
+    "env": {
+      "node": true,
+      "mocha": true,
+      "es6": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 6,
+      "sourceType": "module"
+    },
+    "rules": {
+      "arrow-parens": [
+        "error",
+        "as-needed"
+      ],
+      "max-len": [
+        "error",
+        {
+          "code": 150
+        }
+      ],
+      "no-restricted-syntax": [
+        "off",
+        {
+          "selector": "for..of"
+        }
+      ],
+      "no-underscore-dangle": 0,
+      "import/no-extraneous-dependencies": [
+        "error",
+        {
+          "devDependencies": true
+        }
+      ],
+      "prefer-destructuring": [
+        "error",
+        {
+          "AssignmentExpression": {
+            "array": false,
+            "object": false
+          }
+        }
+      ]
+    }
+  },
+  "babel": {
+    "plugins": [
+      "transform-runtime",
+      [
+        "transform-object-rest-spread",
+        {
+          "useBuiltIns": true
+        }
+      ]
+    ],
+    "env": {
+      "test": {
+        "plugins": [
+          "istanbul"
+        ]
+      }
+    },
+    "presets": [
+      [
+        "env",
+        {
+          "targets": {
+            "node": "8.10"
+          },
+          "include": [
+            "transform-async-to-generator",
+            "es7.object.values",
+            "es7.object.entries"
+          ]
+        }
+      ]
+    ]
+  },
+  "author": "Christian Rich",
+  "license": "ISC",
+  "devDependencies": {
+    "aws-sdk": "^2.258.1",
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.3",
+    "babel-eslint": "^8.2.3",
+    "babel-loader": "^7.1.4",
+    "babel-plugin-istanbul": "^4.1.6",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-preset-env": "^1.7.0",
+    "chai": "^4.1.2",
+    "chai-as-promised": "^7.1.1",
+    "cross-env": "^5.2.0",
+    "decompress": "^4.2.0",
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-config-prettier": "^2.9.0",
+    "eslint-plugin-import": "^2.12.0",
+    "file-loader": "^1.1.11",
+    "fs-extra-promise": "^1.0.1",
+    "mocha": "^5.2.0",
+    "nyc": "^12.0.2",
+    "rimraf": "^2.6.2",
+    "serverless": "^1.27.3",
+    "serverless-dotenv-plugin": "^2.0.1",
+    "serverless-plugin-scripts": "^1.0.2",
+    "serverless-webpack": "^5.1.5",
+    "sinon": "^6.0.0",
+    "sinon-chai": "^3.2.0",
+    "webpack": "^4.12.0",
+    "webpack-node-externals": "^1.7.2"
+  },
+  "dependencies": {
+    "aws-serverless-express": "^3.2.0",
+    "babel-runtime": "^6.26.0",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3",
+    "joy": "^0.1.1",
+    "lodash": "^4.17.11",
+    "multer": "^1.4.1",
+    "sharp": "^0.21.0",
+    "uuid": "^3.3.2"
+  }
+}

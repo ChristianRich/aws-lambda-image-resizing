@@ -1,0 +1,73 @@
+service: ${self:custom.name}
+
+plugins:
+  - serverless-webpack
+  - serverless-dotenv-plugin
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: ${self:custom.stage}
+  region: ${self:custom.region}
+  timeout: 30
+  memorySize: 256
+  apiKeys:
+    - ${self:custom.stackName}-key
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:*
+      Resource: 'arn:aws:s3:::${self:custom.s3BucketName}*'
+
+package:
+  individually: true
+
+functions:
+  api:
+    handler: src/api.handler
+    events:
+      - http:
+          method: any
+          path: /{proxy+}
+          private: true
+          cors: true
+      - http:
+          method: any
+          path: /
+          private: true
+          cors: true
+    environment:
+      S3_BUCKET_NAME: ${self:custom.s3BucketName}
+custom:
+  name: christian-test
+  region: ${opt:region, 'ap-southeast-2'}
+  stage: ${opt:stage, 'tst'}
+  stackName: ${self:service}-${self:custom.stage}
+  s3BucketName: fileupload-bucket
+  # domain: ${self:custom.domainMap.${self:custom.stage}}
+  # domainMap:
+  #   tst: api.tst.xxxxxxx.com.au
+  #   stg: api.stg.xxxxxxx.com.au
+  #   prd: api.xxxxxxx.com.au
+  webpack:
+    includeModules:
+      forceExclude:
+      - aws-sdk
+      - serverless
+    webpackConfig: ${self:custom.webpack.webpackConfigMap.${self:custom.stage}}
+    webpackConfigMap:
+      tst: ./internals/webpack/webpack.dev.config.js
+      stg: ./internals/webpack/webpack.dev.config.js
+      prd: ./internals/webpack/webpack.prod.config.js
+resources:
+  Resources:
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.s3BucketName}
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins: ['*']
+              AllowedHeaders: ['*']
+              AllowedMethods: ['GET']
