@@ -35,7 +35,9 @@ docker cp 8efe2d858742:/var/task/node_modules/sharp.zip /Users/myUserName
 
 Now you have a Linux installation of npm sharp which is compiled against AWS Lambda runtime specifications.
 
-https://github.com/lambci/docker-lambda
-https://github.com/adieuadieu/retinal/tree/master/lambda-sharp
-https://github.com/lambci/docker-lambda
-https://www.rookout.com/3_min_hack_for_building_local_native_extensions/
+Docs and relevant links:
+
+https://github.com/lambci/docker-lambda  
+https://github.com/adieuadieu/retinal/tree/master/lambda-sharp  
+https://github.com/lambci/docker-lambda  
+https://www.rookout.com/3_min_hack_for_building_local_native_extensions/  
