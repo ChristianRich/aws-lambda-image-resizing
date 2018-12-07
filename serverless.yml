@@ -2,7 +2,6 @@ service: ${self:custom.name}
 
 plugins:
   - serverless-webpack
-  - serverless-dotenv-plugin
 
 provider:
   name: aws
@@ -10,7 +9,7 @@ provider:
   stage: ${self:custom.stage}
   region: ${self:custom.region}
   timeout: 30
-  memorySize: 256
+  memorySize: 512
   apiKeys:
     - ${self:custom.stackName}-key
   iamRoleStatements:

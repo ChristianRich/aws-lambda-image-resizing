@@ -3,14 +3,13 @@ import url from 'url';
 import LogService from './log-service';
 import { HttpError } from '../errors/http-error';
 
-// https://github.com/aws/aws-sdk-js/issues/902
 export default class S3Service {
   constructor({
     log = new LogService(),
     s3 = new S3({
-      signatureVersion: 'v4',
+      signatureVersion: 'v4', // https://github.com/aws/aws-sdk-js/issues/902
     }),
-    bucket = process.env.S3_BUCKET_NAME || '1234',
+    bucket = process.env.S3_BUCKET_NAME || 'fileupload-bucket',
   } = {}) {
     this.log = log;
     this.s3 = s3;
@@ -35,17 +34,44 @@ export default class S3Service {
       Expires: expires,
     };
 
-    this.log.debug('Getting pre-signed s3 bucket', params);
-
+    this.log.info('s3.getSignedUrl', params);
     const bucketUrl = await this.s3.getSignedUrl('putObject', params);
     return url.parse(bucketUrl);
   }
 
-  async put({
-    bucket,
+  async getObject({
+    bucket = this.bucket,
     key,
   } = {}) {
-    const params = {};
-    await this.s3.putObject(params);
+    const params = {
+      Bucket: bucket,
+      Key: key,
+    };
+
+    this.log.info('s3.getObject', params);
+
+    const { Body } = await this.s3
+      .getObject(params)
+      .promise();
+
+    return Body;
+  }
+
+  async putObject({
+    bucket = this.bucket,
+    key,
+    buffer,
+  } = {}) {
+    const params = {
+      Bucket: bucket,
+      Key: key,
+      Body: buffer,
+    };
+
+    this.log.info('s3.putObject', params);
+
+    return this.s3
+      .putObject(params)
+      .promise();
   }
 }

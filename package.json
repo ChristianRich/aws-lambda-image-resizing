@@ -14,7 +14,7 @@
     "test": "npm run build:lint && npm run test:unit",
     "test:unit": "cross-env NODE_ENV=test nyc mocha --recursive test/unit",
     "install-modules": "docker run -v `pwd`:`pwd` -w `pwd` -i -t lambci/lambda:build-nodejs8.10 npm install sharp",
-    "build-package": "zip -r package.zip *"
+    "build:sharp": "docker build -t serverless-sharp-image lambda-sharp && docker run -v \"$PWD/lambda-sharp\":/var/task serverless-sharp-image"
   },
   "nyc": {
     "check-coverage": true,
@@ -41,6 +41,14 @@
     "type": "git",
     "url": "git+https://github.com/ChristianRich/aws-lambda-image-resizing.git"
   },
+  "keywords": [
+    "serverless",
+    "sharp",
+    "libvips",
+    "image",
+    "resize",
+    "optimize"
+  ],
   "eslintConfig": {
     "parser": "babel-eslint",
     "extends": [
@@ -161,6 +169,7 @@
     "aws-serverless-express": "^3.2.0",
     "babel-runtime": "^6.26.0",
     "body-parser": "^1.18.3",
+    "buffer-image-size": "^0.6.4",
     "express": "^4.16.3",
     "joy": "^0.1.1",
     "lodash": "^4.17.11",

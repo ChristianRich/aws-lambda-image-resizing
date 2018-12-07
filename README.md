@@ -17,7 +17,7 @@ SSH into the running image and install Sharp and create a zip file from the inst
 ```
 npm i sharp
 cd node_modules
-zip sharp.zip sharp/*
+zip -r sharp.zip sharp/*
 ```
 
 Exit the running image.

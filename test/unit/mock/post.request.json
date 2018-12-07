@@ -1,0 +1,20 @@
+{
+	"data": {
+		"attributes": {
+			"input": {
+				"key": "test.jpg"
+			},
+			"output": {
+				"key": "boo"
+			},
+			"directives": [
+				{
+					"maxWidth": 300
+				},
+				{
+					"maxWidth": 1200
+				}
+			]
+		}
+	}
+}

@@ -1,36 +1,32 @@
 import express from 'express';
-import multer from 'multer';
 import ImageService from '../services/image-service';
 import S3Service from '../services/s3-service';
 import { jsonError } from '../errors/http-error';
 
 const router = express.Router();
 
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-}).single('image');
-
 router.use((req, res, next) => {
   res.jsonError = error => jsonError(res, error);
   next();
 });
 
-router.post('/', upload, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const imageService = new ImageService({ log: req.log });
-    const response = await imageService.resize(req.file);
-    let objective;
+    const {
+      body: {
+        data: {
+          attributes,
+        } = {},
+      } = {},
+    } = req;
 
-    if (req.objective) {
-      objective = JSON.parse(req.objective);
-    }
+    const imageService = new ImageService({ log: req.log });
+    const response = await imageService.bulkResize(attributes);
 
     res.send({
       data: {
-        type: 'image-upload',
+        type: 'image-processing-result',
         response,
-        objective,
       },
     });
   } catch (e) {
