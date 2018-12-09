@@ -11,36 +11,49 @@ router.use((req, res, next) => {
 });
 
 router.post('/', async (req, res) => {
-  try {
-    const {
-      body: {
-        data: {
-          attributes,
-        } = {},
+  const {
+    body: {
+      data: {
+        attributes,
       } = {},
-    } = req;
+    } = {},
+  } = req;
 
+  try {
     const imageService = new ImageService({ log: req.log });
-    const response = await imageService.bulkResize(attributes);
+    const response = await imageService.process(attributes);
 
     res.send({
-      data: {
-        type: 'image-processing-result',
-        response,
-      },
+      data: response.map(x => ({
+        type: 'image-resize-operation',
+        attributes: x,
+      })),
     });
   } catch (e) {
-    req.log.warn('Image resizing failed', e, { file: req.file ? req.file.originalname : undefined });
+    req.log.warn('Image resizing failed', e, attributes);
     res.jsonError(e);
   }
 });
 
-router.get('/getSignedUrl', async (req, res) => {
+router.post('/getSignedUrl', async (req, res) => {
+  const {
+    body: {
+      data: {
+        attributes,
+      } = {},
+    } = {},
+  } = req;
+
   try {
     const s3Service = new S3Service({ log: req.log });
-    const url = await s3Service.getSignedUrl();
+    const url = await s3Service.getSignedUrl(attributes);
     res.json({
-      url,
+      data: {
+        type: 'signed-url',
+        attributes: {
+          ...url,
+        },
+      },
     });
   } catch (e) {
     req.log.warn('getSignedUrl failed', e);
@@ -48,20 +61,12 @@ router.get('/getSignedUrl', async (req, res) => {
   }
 });
 
-router.get('/env', async (req, res) => {
-  const o = {};
-
-  Object.keys(process.env).forEach(key => {
-    if (!key.includes('npm_')) {
-      o[key] = process.env[key];
-    }
-  });
-
-  res.json(o);
+router.get('/ping', async (req, res) => {
+  res.end();
 });
 
-router.get('/ping', async (req, res) => {
-  res.send('200 OK');
+router.get('/test', async (req, res) => {
+  res.end();
 });
 
 export default router;

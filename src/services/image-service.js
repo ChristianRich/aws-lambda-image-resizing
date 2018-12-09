@@ -1,10 +1,15 @@
 import sharp from 'sharp';
 import LogService from './log-service';
 import S3Service from './s3-service';
-import ImageUtils from '../util/image';
-import { HttpError } from '../errors/http-error';
+import ImageUtil from '../utils/image-util';
+import ImageResizeRequest from '../domain/image-resize-request';
+import { HttpError, HttpValidationError } from '../errors/http-error';
+
+export const DEFAULT_JPG_QUALITY = 80;
+export const DEFAULT_CHROMA_SUB_SAMPLING = '4:4:4';
 
 export default class ImageService {
+  /* istanbul ignore next */
   constructor({
     log = new LogService(),
     s3Service = new S3Service({ log }),
@@ -14,32 +19,45 @@ export default class ImageService {
   }
 
   /**
-   * Resize a file from a buffer
+   * Process an image resize request
+   * @param {object} attributes
+   * @returns {Promise<Object>}
    */
-  async bulkResize(attributes) {
+  async process(attributes) {
     if (!attributes) {
-      throw new HttpError('attributes required', 400);
+      throw new HttpError('body.data.attributes required', 400);
     }
-    const inputBuffer = await this.s3Service.getObject({
-      key: attributes.input.key, // test.jpg
-    });
 
-    if (!inputBuffer) {
-      throw new HttpError('File in S3 not found', 404);
+    const { error: validationError } = ImageResizeRequest.CONSTRAINTS.validate(attributes);
+
+    if (validationError) {
+      throw new HttpValidationError(validationError.details);
+    }
+
+    let inputBuffer;
+
+    try {
+      inputBuffer = await this.s3Service.getObject({
+        key: attributes.input.key,
+      });
+    } catch (e) {
+      this.log.warn(`Error loading key ${attributes.input.key} from S3`, e);
+      throw new HttpError(`Error loading key '${attributes.input.key}' from S3`, 404);
     }
 
     const results = [];
 
-    this.log.info('resize', attributes);
+    this.log.info('process', attributes);
 
-    for (const size of attributes.sizes) {
+    // Perform a single operation at a time
+    for (const operation of attributes.operations) {
       const event = await this.resize({ // eslint-disable-line no-await-in-loop
         buffer: inputBuffer,
-        filename: attributes.output.key,
-        quality: attributes.output.quality,
-        chromaSubsampling: attributes.output.chromaSubsampling,
-        maxWidth: size.maxWidth || undefined,
-        maxHeight: size.maxHeight || undefined,
+        outputFilename: attributes.output.key,
+        quality: operation.quality || attributes.output.quality,
+        chromaSubsampling: operation.chromaSubsampling || attributes.output.chromaSubsampling,
+        maxWidth: operation.maxWidth || undefined,
+        maxHeight: operation.maxHeight || undefined,
       });
 
       results.push(event);
@@ -57,42 +75,45 @@ export default class ImageService {
    * @param {string} chromaSubsampling
    * @param {number} maxWidth
    * @param {number} maxHeight
-   * @returns {Promise<Buffer>}
+   * @returns {Promise<object>}
    */
   async resize({
     buffer,
-    filename,
-    quality = 80,
-    chromaSubsampling = '4:4:4',
+    outputFilename,
+    quality = DEFAULT_JPG_QUALITY,
+    chromaSubsampling = DEFAULT_CHROMA_SUB_SAMPLING,
     maxWidth,
     maxHeight,
   }) {
-    const dimensions = ImageUtils.getDimensions(buffer);
+    const startTime = new Date();
+    const metaData = await ImageUtil.getMetaData(buffer);
 
     this.log.info('resize', {
       maxWidth,
       maxHeight,
-      srcWidth: dimensions.width,
-      srcHeight: dimensions.height,
+      srcWidth: metaData.width,
+      srcHeight: metaData.height,
     });
 
-    const { width, height } = ImageUtils.calculateAspectRatioFit({
-      srcWidth: dimensions.width,
-      srcHeight: dimensions.height,
+    const {
+      width: newWidth,
+      height: newHeight,
+    } = ImageUtil.calculateAspectRatioFit({
+      srcWidth: metaData.width,
+      srcHeight: metaData.height,
       maxWidth,
       maxHeight,
     });
 
     this.log.info('Resize image', {
-      srcWidth: dimensions.width,
-      srcHeight: dimensions.height,
-      newWidth: width,
-      newHeight: height,
+      srcWidth: metaData.width,
+      srcHeight: metaData.height,
+      newWidth,
+      newHeight,
     });
 
-    // TODO review operations
     const outputBuffer = await sharp(buffer)
-      .resize(width, height)
+      .resize(newWidth, newHeight)
       .normalise(true)
       .sharpen()
       .flatten()
@@ -102,19 +123,21 @@ export default class ImageService {
       })
       .toBuffer();
 
-    const key = `${filename}-${width}x${height}.jpg`;
-    const s3Upload = await this.s3Service.putObject({
+    const key = `${outputFilename}-${newWidth}x${newHeight}.jpg`; // All images are forces to jpg
+    const url = await this.s3Service.putObject({
       buffer: outputBuffer,
       key,
     });
 
     return {
-      srcWidth: dimensions.width,
-      srcHeight: dimensions.height,
-      newWidth: width,
-      newHeight: height,
-      s3Upload,
-      key,
+      url,
+      meta: {
+        processingTime: `${((new Date() - startTime) / 1000).toFixed(2)} sec`,
+        srcWidth: metaData.width,
+        srcHeight: metaData.height,
+        newWidth,
+        newHeight,
+      },
     };
   }
 }

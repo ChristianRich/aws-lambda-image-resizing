@@ -3,16 +3,16 @@ const serverlessWebpack = require('serverless-webpack');
 const webpackNodeExternals = require('webpack-node-externals');
 const decompress = require('decompress');
 
-const SHARP_VERSION = '0.21.0';
+const SHARP_VERSION = '0.21.1';
 const sharpTarball = path.join(
   __dirname,
-  `../../lambda-sharp/tarballs/sharp-${SHARP_VERSION}-aws-lambda-linux-x64-node-6.10.1.tar.gz`,
+  `../../lambda-sharp/tarballs/sharp-${SHARP_VERSION}-aws-lambda-linux-x64-node-8.10.1.tar.gz`,
 );
 
 const nodeModulesDistFolder = path.join(__dirname, 'dist/dependencies');
 
 /**
- * Extract zip to output
+ * Extract Linux distribution tarball of npm sharp to output
  * https://github.com/adieuadieu/retinal/blob/master/webpack.config.js
  * https://webpack.js.org/api/compiler-hooks
  * @param {string} archive

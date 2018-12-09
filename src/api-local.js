@@ -1,7 +1,6 @@
 /* istanbul ignore file */
 import express from 'express';
 import imageController from './controllers/image-controller';
-import TraceService from './services/trace-service';
 import LogService from './services/log-service';
 
 const app = express();
@@ -15,7 +14,6 @@ const getLogDetails = req => ({
 });
 
 app.use(express.json())
-  .use(TraceService.middleware())
   .use(LogService.middleware())
   .use((req, res, next) => {
     req.log.debug('Processing request', getLogDetails(req));

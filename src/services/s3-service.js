@@ -1,5 +1,5 @@
 import { S3 } from 'aws-sdk';
-import url from 'url';
+import mimeTypes from 'mime-types';
 import LogService from './log-service';
 import { HttpError } from '../errors/http-error';
 
@@ -9,13 +9,13 @@ export default class S3Service {
     s3 = new S3({
       signatureVersion: 'v4', // https://github.com/aws/aws-sdk-js/issues/902
     }),
-    bucket = process.env.S3_BUCKET_NAME || 'fileupload-bucket',
+    bucketName = process.env.S3_BUCKET_NAME,
   } = {}) {
     this.log = log;
     this.s3 = s3;
-    this.bucket = bucket;
+    this.bucketName = bucketName;
 
-    if (!bucket) {
+    if (!this.bucketName) {
       throw new HttpError('Required: S3_BUCKET_NAME');
     }
   }
@@ -25,26 +25,29 @@ export default class S3Service {
    * @param {*} param
    */
   async getSignedUrl({
-    key = 'myfile.jpg',
-    expires = 60 * 5,
+    key,
+    expires = 60 * 60,
   } = {}) {
     const params = {
-      Bucket: this.bucket,
+      Bucket: this.bucketName,
       Key: key,
       Expires: expires,
     };
 
     this.log.info('s3.getSignedUrl', params);
     const bucketUrl = await this.s3.getSignedUrl('putObject', params);
-    return url.parse(bucketUrl);
+
+    // console.log('BUCKET URL');
+    // console.log(bucketUrl);
+    return bucketUrl;
+    // return url.parse(bucketUrl);
   }
 
   async getObject({
-    bucket = this.bucket,
     key,
   } = {}) {
     const params = {
-      Bucket: bucket,
+      Bucket: this.bucketName,
       Key: key,
     };
 
@@ -57,21 +60,38 @@ export default class S3Service {
     return Body;
   }
 
+  /**
+   * Uploads a file to S3 in YYYY/MM folder structure and returns the absolute url
+   * @param {object} params
+   * @param {string} key - filename eg. 'myImage.jpg'
+   * @param {buffer} buffer - image Buffer containing the binary image data
+   * @param {string} [cacheControl='public, max-age=31557600000'] - defaults to 1 year
+   * @param {string} [prefix='YYYY/MM']
+   * @param {string} [ACL='public-read']
+   * @returns {string} The absolute url for the uploaded image
+   */
   async putObject({
-    bucket = this.bucket,
     key,
     buffer,
+    cacheControl = 'public, max-age=31557600000',
+    prefix = `${new Date().getFullYear()}/${new Date().getMonth() + 1}`,
+    acl = 'public-read',
   } = {}) {
     const params = {
-      Bucket: bucket,
-      Key: key,
+      Bucket: this.bucketName,
+      Key: `${prefix}/${key}`,
       Body: buffer,
+      ACL: acl,
+      ContentType: mimeTypes.lookup(key),
+      CacheControl: cacheControl,
     };
 
     this.log.info('s3.putObject', params);
 
-    return this.s3
+    await this.s3
       .putObject(params)
       .promise();
+
+    return `https://s3-${process.env.AWS_REGION}.amazonaws.com/${this.bucketName}/${params.Key}`;
   }
 }

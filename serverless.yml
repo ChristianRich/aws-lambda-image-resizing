@@ -8,7 +8,7 @@ provider:
   runtime: nodejs8.10
   stage: ${self:custom.stage}
   region: ${self:custom.region}
-  timeout: 30
+  timeout: 60
   memorySize: 512
   apiKeys:
     - ${self:custom.stackName}-key
@@ -35,19 +35,31 @@ functions:
           path: /
           private: true
           cors: true
+      # - http:
+      #     method: POST
+      #     path: /
+      #     private: true
+      #     cors: true
+      # - http:
+      #     method: GET
+      #     path: /getSignedUrl
+      #     private: true
+      #     cors: true
+      # - http:
+      #     method: GET
+      #     path: /ping
+      #     private: true
+      #     cors: true
+
     environment:
       S3_BUCKET_NAME: ${self:custom.s3BucketName}
+      # AWS_REGION: ${self:custom.region}
 custom:
   name: christian-test
   region: ${opt:region, 'ap-southeast-2'}
   stage: ${opt:stage, 'tst'}
   stackName: ${self:service}-${self:custom.stage}
-  s3BucketName: fileupload-bucket
-  # domain: ${self:custom.domainMap.${self:custom.stage}}
-  # domainMap:
-  #   tst: api.tst.xxxxxxx.com.au
-  #   stg: api.stg.xxxxxxx.com.au
-  #   prd: api.xxxxxxx.com.au
+  s3BucketName: fileupload-bucket-christian-test
   webpack:
     includeModules:
       forceExclude:
@@ -69,4 +81,4 @@ resources:
             -
               AllowedOrigins: ['*']
               AllowedHeaders: ['*']
-              AllowedMethods: ['GET']
+              AllowedMethods: ['GET', 'PUT']

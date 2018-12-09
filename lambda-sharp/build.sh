@@ -1,7 +1,7 @@
 # Set some variables
 SHARP_VERSION=$(npm show sharp version)
 SHARP_DIRECTORY=sharp-$SHARP_VERSION
-TARBALL=sharp-$SHARP_VERSION-aws-lambda-linux-x64-node-6.10.1.tar.gz
+TARBALL=sharp-$SHARP_VERSION-aws-lambda-linux-x64-node-8.10.1.tar.gz
 
 # Make a working directory
 mkdir $SHARP_DIRECTORY

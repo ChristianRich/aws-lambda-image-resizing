@@ -5,11 +5,15 @@
 				"key": "test.jpg"
 			},
 			"output": {
-				"key": "boo"
+        "key": "boo",
+        "quality": 80,
+        "chromaSubsampling": "4:4:4"
 			},
-			"directives": [
+			"operations": [
 				{
-					"maxWidth": 300
+          "maxWidth": 300,
+          "quality": 50
+
 				},
 				{
 					"maxWidth": 1200
