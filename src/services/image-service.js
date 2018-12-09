@@ -123,16 +123,19 @@ export default class ImageService {
       })
       .toBuffer();
 
-    const key = `${outputFilename}-${newWidth}x${newHeight}.jpg`; // All images are forces to jpg
+    const key = `${outputFilename}-${newWidth}x${newHeight}.jpg`;
     const url = await this.s3Service.putObject({
       buffer: outputBuffer,
       key,
     });
 
+    const { size } = await ImageUtil.getMetaData(outputBuffer);
+
     return {
       url,
       meta: {
         processingTime: `${((new Date() - startTime) / 1000).toFixed(2)} sec`,
+        size,
         srcWidth: metaData.width,
         srcHeight: metaData.height,
         newWidth,
