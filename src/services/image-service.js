@@ -125,12 +125,12 @@ export default class ImageService {
       meta: {
         processingTime: `${((new Date() - startTime) / 1000).toFixed(2)} sec`,
         sizeReduction: `${(((metaData.size - size) / metaData.size) * 100).toFixed(2)}%`,
-        original: {
+        input: {
           width: metaData.width,
           height: metaData.height,
           size: fileSize(metaData.size),
         },
-        processed: {
+        output: {
           width: newWidth,
           height: newHeight,
           size: fileSize(size),
