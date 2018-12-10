@@ -4,6 +4,8 @@ import joi from 'joi';
 export class SingleImageOperation {
   static get CONSTRAINTS() {
     return joi.object({
+      width: joi.number().optional(),
+      height: joi.number().optional(),
       maxWidth: joi.number().optional(),
       maxHeight: joi.number().optional(),
       quality: joi.number().optional().min(0).max(100),

@@ -19,9 +19,7 @@ describe('image-service', () => {
       s3Service: {
         getSignedUrl: sinon.stub(),
         getObject: sinon.stub().resolves(fs.readFileSync(`${process.cwd()}/test/assets/iphone-6-landscape.JPG`)),
-        putObject: sinon.stub().resolves({
-          Etag: '1234',
-        }),
+        putObject: sinon.stub().resolves('https://example.com.example.jpg'),
       },
     });
 
@@ -55,26 +53,42 @@ describe('image-service', () => {
       buffer: service.s3Service.putObject.args[1][0].buffer,
       key: 'boo-1200x900.jpg',
     });
+
+
     expect(result).to.eql([
       {
-        srcWidth: 3264,
-        srcHeight: 2448,
-        newWidth: 300,
-        newHeight: 225,
-        s3Upload: {
-          Etag: '1234',
+        url: 'https://example.com.example.jpg',
+        meta: {
+          processingTime: result[0].meta.processingTime,
+          sizeReduction: result[0].meta.sizeReduction,
+          original: {
+            width: 3264,
+            height: 2448,
+            size: '2.69 MB',
+          },
+          processed: {
+            width: 300,
+            height: 225,
+            size: '16.32 KB',
+          },
         },
-        key: 'boo-300x225.jpg',
       },
       {
-        srcWidth: 3264,
-        srcHeight: 2448,
-        newWidth: 1200,
-        newHeight: 900,
-        s3Upload: {
-          Etag: '1234',
+        url: 'https://example.com.example.jpg',
+        meta: {
+          processingTime: result[1].meta.processingTime,
+          sizeReduction: result[1].meta.sizeReduction,
+          original: {
+            width: 3264,
+            height: 2448,
+            size: '2.69 MB',
+          },
+          processed: {
+            width: 1200,
+            height: 900,
+            size: '308.61 KB',
+          },
         },
-        key: 'boo-1200x900.jpg',
       },
     ]);
   });

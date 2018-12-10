@@ -25,7 +25,7 @@ router.post('/', async (req, res) => {
 
     res.send({
       data: response.map(x => ({
-        type: 'image-resize-operation',
+        type: 'image-processing-operation',
         attributes: x,
       })),
     });
@@ -49,7 +49,7 @@ router.post('/getSignedUrl', async (req, res) => {
     const url = await s3Service.getSignedUrl(attributes);
     res.json({
       data: {
-        type: 'signed-url',
+        type: 's3-signed-url',
         attributes: {
           ...url,
         },
@@ -59,14 +59,6 @@ router.post('/getSignedUrl', async (req, res) => {
     req.log.warn('getSignedUrl failed', e);
     res.jsonError(e);
   }
-});
-
-router.get('/ping', async (req, res) => {
-  res.end();
-});
-
-router.get('/test', async (req, res) => {
-  res.end();
 });
 
 export default router;

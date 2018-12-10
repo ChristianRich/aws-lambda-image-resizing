@@ -8,7 +8,7 @@ provider:
   runtime: nodejs8.10
   stage: ${self:custom.stage}
   region: ${self:custom.region}
-  timeout: 60
+  timeout: 30
   memorySize: 512
   apiKeys:
     - ${self:custom.stackName}-key

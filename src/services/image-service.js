@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import fileSize from 'filesize';
 import LogService from './log-service';
 import S3Service from './s3-service';
 import ImageUtil from '../utils/image-util';
@@ -28,11 +29,13 @@ export default class ImageService {
       throw new HttpError('body.data.attributes required', 400);
     }
 
-    const { error: validationError } = ImageResizeRequest.CONSTRAINTS.validate(attributes);
+    const { error } = ImageResizeRequest.CONSTRAINTS.validate(attributes);
 
-    if (validationError) {
-      throw new HttpValidationError(validationError.details);
+    if (error) {
+      throw new HttpValidationError(error.details);
     }
+
+    this.log.info('process', attributes);
 
     let inputBuffer;
 
@@ -45,36 +48,33 @@ export default class ImageService {
       throw new HttpError(`Error loading key '${attributes.input.key}' from S3`, 404);
     }
 
-    const results = [];
+    await ImageUtil.validate(inputBuffer);
 
-    this.log.info('process', attributes);
+    const promises = attributes.operations.map(operation => this.resize({
+      buffer: inputBuffer,
+      outputFilename: attributes.output.key,
+      quality: operation.quality || attributes.output.quality,
+      chromaSubsampling: operation.chromaSubsampling || attributes.output.chromaSubsampling,
+      width: operation.width || undefined,
+      height: operation.height || undefined,
+      maxWidth: operation.maxWidth || undefined,
+      maxHeight: operation.maxHeight || undefined,
+    }));
 
-    // Perform a single operation at a time
-    for (const operation of attributes.operations) {
-      const event = await this.resize({ // eslint-disable-line no-await-in-loop
-        buffer: inputBuffer,
-        outputFilename: attributes.output.key,
-        quality: operation.quality || attributes.output.quality,
-        chromaSubsampling: operation.chromaSubsampling || attributes.output.chromaSubsampling,
-        maxWidth: operation.maxWidth || undefined,
-        maxHeight: operation.maxHeight || undefined,
-      });
-
-      results.push(event);
-    }
-
-    return results;
+    return Promise.all(promises);
   }
 
   /**
    * Resize a single image buffer
    * @param {object} param
    * @param {buffer} buffer
-   * @param {string} filename
+   * @param {string} outputFilename
    * @param {number} quality
    * @param {string} chromaSubsampling
-   * @param {number} maxWidth
-   * @param {number} maxHeight
+   * @param {number} width
+   * @param {number} height
+   * @param {number} maxWidth - Takes precedence over width and automatically calculates the height keeping the source aspect ratio
+   * @param {number} maxHeight - Takes precedence over height and automatically calculates the width keeping the source aspect ratio
    * @returns {Promise<object>}
    */
   async resize({
@@ -82,19 +82,13 @@ export default class ImageService {
     outputFilename,
     quality = DEFAULT_JPG_QUALITY,
     chromaSubsampling = DEFAULT_CHROMA_SUB_SAMPLING,
+    width,
+    height,
     maxWidth,
     maxHeight,
   }) {
     const startTime = new Date();
     const metaData = await ImageUtil.getMetaData(buffer);
-
-    this.log.info('resize', {
-      maxWidth,
-      maxHeight,
-      srcWidth: metaData.width,
-      srcHeight: metaData.height,
-    });
-
     const {
       width: newWidth,
       height: newHeight,
@@ -105,15 +99,8 @@ export default class ImageService {
       maxHeight,
     });
 
-    this.log.info('Resize image', {
-      srcWidth: metaData.width,
-      srcHeight: metaData.height,
-      newWidth,
-      newHeight,
-    });
-
     const outputBuffer = await sharp(buffer)
-      .resize(newWidth, newHeight)
+      .resize(width || newWidth, height || newHeight)
       .normalise(true)
       .sharpen()
       .flatten()
@@ -131,16 +118,25 @@ export default class ImageService {
 
     const { size } = await ImageUtil.getMetaData(outputBuffer);
 
-    return {
+    const meta = {
       url,
       meta: {
         processingTime: `${((new Date() - startTime) / 1000).toFixed(2)} sec`,
-        size,
-        srcWidth: metaData.width,
-        srcHeight: metaData.height,
-        newWidth,
-        newHeight,
+        sizeReduction: `${(((metaData.size - size) / metaData.size) * 100).toFixed(2)}%`,
+        original: {
+          width: metaData.width,
+          height: metaData.height,
+          size: fileSize(metaData.size),
+        },
+        processed: {
+          width: newWidth,
+          height: newHeight,
+          size: fileSize(size),
+        },
       },
     };
+
+    this.log.info('Image operation complete', meta);
+    return meta;
   }
 }

@@ -26,7 +26,7 @@ export default class S3Service {
    */
   async getSignedUrl({
     key,
-    expires = 60 * 60,
+    expires = 60 * 5,
   } = {}) {
     const params = {
       Bucket: this.bucketName,
@@ -35,12 +35,7 @@ export default class S3Service {
     };
 
     this.log.info('s3.getSignedUrl', params);
-    const bucketUrl = await this.s3.getSignedUrl('putObject', params);
-
-    // console.log('BUCKET URL');
-    // console.log(bucketUrl);
-    return bucketUrl;
-    // return url.parse(bucketUrl);
+    return this.s3.getSignedUrl('putObject', params);
   }
 
   async getObject({
