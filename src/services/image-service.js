@@ -101,9 +101,6 @@ export default class ImageService {
 
     const outputBuffer = await sharp(buffer)
       .resize(width || newWidth, height || newHeight)
-      // .normalise(true)
-      // .sharpen()
-      // .flatten()
       .jpeg({
         quality,
         chromaSubsampling,
