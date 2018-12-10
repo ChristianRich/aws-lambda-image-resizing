@@ -53,7 +53,10 @@ functions:
 
     environment:
       S3_BUCKET_NAME: ${self:custom.s3BucketName}
-      # AWS_REGION: ${self:custom.region}
+      MAX_FILE_SIZE_MB: 10
+      MAX_WIDTH_PIXELS: 10000
+      MAX_HEIGHT_PIXELS: 10000
+      ALLOWED_IMAGE_TYPES: jpeg,jpg,png
 custom:
   name: christian-test
   region: ${opt:region, 'ap-southeast-2'}

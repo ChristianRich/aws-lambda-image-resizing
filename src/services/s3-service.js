@@ -61,15 +61,15 @@ export default class S3Service {
    * @param {string} key - filename eg. 'myImage.jpg'
    * @param {buffer} buffer - image Buffer containing the binary image data
    * @param {string} [cacheControl='public, max-age=31557600000'] - defaults to 1 year
-   * @param {string} [prefix='YYYY/MM']
+   * @param {string} [prefix='']
    * @param {string} [ACL='public-read']
-   * @returns {string} The absolute url for the uploaded image
+   * @returns {object} Url info
    */
   async putObject({
     key,
     buffer,
     cacheControl = 'public, max-age=31557600000',
-    prefix = `${new Date().getFullYear()}/${new Date().getMonth() + 1}`,
+    prefix = '',
     acl = 'public-read',
   } = {}) {
     const params = {
@@ -87,6 +87,12 @@ export default class S3Service {
       .putObject(params)
       .promise();
 
-    return `https://s3-${process.env.AWS_REGION}.amazonaws.com/${this.bucketName}/${params.Key}`;
+    return {
+      url: `https://s3-${process.env.AWS_REGION}.amazonaws.com/${this.bucketName}/${params.Key}`,
+      key,
+      prefix,
+      region: process.env.AWS_REGION,
+      baseUrl: `https://s3-${process.env.AWS_REGION}.amazonaws.com`,
+    };
   }
 }

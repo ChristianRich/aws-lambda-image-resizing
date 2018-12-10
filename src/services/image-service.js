@@ -101,25 +101,27 @@ export default class ImageService {
 
     const outputBuffer = await sharp(buffer)
       .resize(width || newWidth, height || newHeight)
-      .normalise(true)
-      .sharpen()
-      .flatten()
+      // .normalise(true)
+      // .sharpen()
+      // .flatten()
       .jpeg({
         quality,
         chromaSubsampling,
       })
       .toBuffer();
 
+    const prefix = `${new Date().getFullYear()}/${new Date().getMonth() + 1}`;
     const key = `${outputFilename}-${newWidth}x${newHeight}.jpg`;
-    const url = await this.s3Service.putObject({
+    const urls = await this.s3Service.putObject({
       buffer: outputBuffer,
       key,
+      prefix,
     });
 
     const { size } = await ImageUtil.getMetaData(outputBuffer);
 
     const meta = {
-      url,
+      ...urls,
       meta: {
         processingTime: `${((new Date() - startTime) / 1000).toFixed(2)} sec`,
         sizeReduction: `${(((metaData.size - size) / metaData.size) * 100).toFixed(2)}%`,
