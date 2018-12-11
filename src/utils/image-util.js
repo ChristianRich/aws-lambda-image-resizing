@@ -1,6 +1,9 @@
 import sharp from 'sharp';
 import { HttpError } from '../errors/http-error';
 
+/**
+ * Collection of utilities handy for interacting with images and resizing
+ */
 export default class ImageUtil {
   /**
    * Calculates the corresponding width or height for which ever property is missing by keeping the aspect ratio
@@ -69,42 +72,11 @@ export default class ImageUtil {
 
   /**
    * Return images meta-data e.g width, height, size
-   * http://sharp.pixelplumbing.com/en/stable/api-input/#metadata
    * @param {Buffer} buffer
-   * @returns {height: number, width: number, type: string}
+   * @returns {object} see http://sharp.pixelplumbing.com/en/stable/api-input/#metadata
    */
   static getMetaData(buffer) {
     return sharp(buffer)
       .metadata();
-  }
-
-  /**
-   * Validate image buffer (user uploaded contents)
-   * @param {buffer} buffer
-   * @throws {Error}
-   */
-  static async validate(buffer) {
-    const {
-      size,
-      width,
-      height,
-      format,
-    } = await ImageUtil.getMetaData(buffer);
-
-    if ((size / 1e+6) > 10) {
-      throw new HttpError('Image exceeds maximum file size of 10 Mb', 400);
-    }
-
-    if (!['jpeg', 'jpg', 'png'].includes(format)) {
-      throw new HttpError(`Image format ${format} is not supported`, 400);
-    }
-
-    if (width > 10000) {
-      throw new HttpError('Image exceeds maximum width of 10,000 pixels', 400);
-    }
-
-    if (height > 10000) {
-      throw new HttpError('Image exceeds maximum height of 10,000 pixels', 400);
-    }
   }
 }

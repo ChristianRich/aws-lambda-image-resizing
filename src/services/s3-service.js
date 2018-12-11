@@ -1,18 +1,20 @@
 import { S3 } from 'aws-sdk';
 import mimeTypes from 'mime-types';
+import omit from 'lodash/omit';
+import rp from 'request-promise-native';
 import LogService from './log-service';
 import { HttpError } from '../errors/http-error';
 
 export default class S3Service {
   constructor({
     log = new LogService(),
-    s3 = new S3({
-      signatureVersion: 'v4', // https://github.com/aws/aws-sdk-js/issues/902
-    }),
+    s3 = new S3({ signatureVersion: 'v4' }), // https://github.com/aws/aws-sdk-js/issues/902
+    http = rp,
     bucketName = process.env.S3_BUCKET_NAME,
   } = {}) {
     this.log = log;
     this.s3 = s3;
+    this.http = http;
     this.bucketName = bucketName;
 
     if (!this.bucketName) {
@@ -22,12 +24,18 @@ export default class S3Service {
 
   /**
    * Generates a pre-signed single use S3 upload url
-   * @param {*} param
+   * @param {object} param
+   * @param {string} key
+   * @param {number} [expires=60*5] - Default expiry to 5 minutes
    */
   async getSignedUrl({
     key,
     expires = 60 * 5,
   } = {}) {
+    if (typeof key !== 'string') {
+      throw new HttpError('Type string expected for param key');
+    }
+
     const params = {
       Bucket: this.bucketName,
       Key: key,
@@ -38,6 +46,11 @@ export default class S3Service {
     return this.s3.getSignedUrl('putObject', params);
   }
 
+  /**
+   * Returns a object from S3
+   * @param {object} params
+   * @param {string} key
+   */
   async getObject({
     key,
   } = {}) {
@@ -51,6 +64,10 @@ export default class S3Service {
     const { Body } = await this.s3
       .getObject(params)
       .promise();
+
+    if (!Body) {
+      throw new HttpError(`Error loading key '${key}' from S3`, 404);
+    }
 
     return Body;
   }
@@ -72,6 +89,10 @@ export default class S3Service {
     prefix = '',
     acl = 'public-read',
   } = {}) {
+    if (!(buffer instanceof Buffer)) {
+      throw new HttpError('Type Buffer expected for param buffer', 400);
+    }
+
     const params = {
       Bucket: this.bucketName,
       Key: `${prefix}/${key}`,
@@ -81,7 +102,7 @@ export default class S3Service {
       CacheControl: cacheControl,
     };
 
-    this.log.info('s3.putObject', params);
+    this.log.info('s3.putObject', omit(params, 'Body'));
 
     await this.s3
       .putObject(params)
@@ -94,5 +115,29 @@ export default class S3Service {
       region: process.env.AWS_REGION,
       baseUrl: `https://s3-${process.env.AWS_REGION}.amazonaws.com`,
     };
+  }
+
+  /**
+   * Uploads a file to S3 using a pre-signed url. See getSignedUrl().
+   * @param {object} param
+   * @param {string} url - pre-signed url
+   * @param {buffer} buffer - file to upload
+   */
+  async upload({
+    url,
+    buffer,
+  } = {}) {
+    const params = {
+      method: 'PUT',
+      url,
+      body: buffer,
+      headers: {
+        'Content-Type': 'application/octet-stream',
+      },
+      json: true,
+    };
+
+    this.log.info('s3.getObject', params);
+    this.http(params);
   }
 }

@@ -25,31 +25,31 @@ functions:
   api:
     handler: src/api.handler
     events:
-      - http:
-          method: any
-          path: /{proxy+}
-          private: true
-          cors: true
-      - http:
-          method: any
-          path: /
-          private: true
-          cors: true
       # - http:
-      #     method: POST
+      #     method: any
+      #     path: /{proxy+}
+      #     private: true
+      #     cors: true
+      # - http:
+      #     method: any
       #     path: /
       #     private: true
       #     cors: true
-      # - http:
-      #     method: GET
-      #     path: /getSignedUrl
-      #     private: true
-      #     cors: true
-      # - http:
-      #     method: GET
-      #     path: /ping
-      #     private: true
-      #     cors: true
+      - http:
+          method: POST
+          path: /
+          private: true
+          cors: true
+      - http:
+          method: POST
+          path: /getSignedUrl
+          private: true
+          cors: true
+      - http:
+          method: GET
+          path: /ping
+          private: true
+          cors: true
 
     environment:
       S3_BUCKET_NAME: ${self:custom.s3BucketName}

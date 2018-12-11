@@ -10,6 +10,10 @@ router.use((req, res, next) => {
   next();
 });
 
+router.get('/ping', async (req, res) => {
+  res.end();
+});
+
 router.post('/', async (req, res) => {
   const {
     body: {
@@ -30,7 +34,7 @@ router.post('/', async (req, res) => {
       })),
     });
   } catch (e) {
-    req.log.warn('Image resizing failed', e, attributes);
+    req.log.warn('Image processing failed', e, attributes);
     res.jsonError(e);
   }
 });
@@ -46,12 +50,12 @@ router.post('/getSignedUrl', async (req, res) => {
 
   try {
     const s3Service = new S3Service({ log: req.log });
-    const url = await s3Service.getSignedUrl(attributes);
+    const url = await s3Service.getSignedUrl({ key: attributes.key });
     res.json({
       data: {
         type: 's3-signed-url',
         attributes: {
-          ...url,
+          url,
         },
       },
     });

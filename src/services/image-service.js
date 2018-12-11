@@ -1,8 +1,10 @@
 import sharp from 'sharp';
 import fileSize from 'filesize';
+import omit from 'lodash/omit';
 import LogService from './log-service';
 import S3Service from './s3-service';
 import ImageUtil from '../utils/image-util';
+import Image from '../domain/image';
 import ImageResizeRequest from '../domain/image-resize-request';
 import { HttpError, HttpValidationError } from '../errors/http-error';
 
@@ -20,9 +22,9 @@ export default class ImageService {
   }
 
   /**
-   * Process an image resize request
-   * @param {object} attributes
-   * @returns {Promise<Object>}
+   * Process an image resize request and returns an array of image operation stats
+   * @param {ImageResizeRequest} attributes
+   * @returns {Promise<Object[]>}
    */
   async process(attributes) {
     if (!attributes) {
@@ -35,47 +37,37 @@ export default class ImageService {
       throw new HttpValidationError(error.details);
     }
 
-    this.log.info('process', attributes);
+    const buffer = await this.s3Service.getObject({ key: attributes.input.key });
+    const inputImage = new Image({ buffer });
+    await inputImage.validate();
 
-    let inputBuffer;
+    this.log.info('processing image resize request', {
+      attributes,
+      source: omit(inputImage, ['buffer', 'exif', 'icc']),
+    });
 
-    try {
-      inputBuffer = await this.s3Service.getObject({
-        key: attributes.input.key,
-      });
-    } catch (e) {
-      this.log.warn(`Error loading key ${attributes.input.key} from S3`, e);
-      throw new HttpError(`Error loading key '${attributes.input.key}' from S3`, 404);
-    }
-
-    await ImageUtil.validate(inputBuffer);
-
-    const promises = attributes.operations.map(operation => this.resize({
-      buffer: inputBuffer,
+    return Promise.all(attributes.operations.map(operation => this.resize({
+      buffer,
       outputFilename: attributes.output.key,
       quality: operation.quality || attributes.output.quality,
       chromaSubsampling: operation.chromaSubsampling || attributes.output.chromaSubsampling,
-      width: operation.width || undefined,
-      height: operation.height || undefined,
-      maxWidth: operation.maxWidth || undefined,
-      maxHeight: operation.maxHeight || undefined,
-    }));
-
-    return Promise.all(promises);
+      ...operation,
+    })));
   }
 
   /**
-   * Resize a single image buffer
+   * Resize a single image buffer, saves to S3 and returns a stat object
    * @param {object} param
    * @param {buffer} buffer
    * @param {string} outputFilename
-   * @param {number} quality
-   * @param {string} chromaSubsampling
-   * @param {number} width
-   * @param {number} height
-   * @param {number} maxWidth - Takes precedence over width and automatically calculates the height keeping the source aspect ratio
-   * @param {number} maxHeight - Takes precedence over height and automatically calculates the width keeping the source aspect ratio
-   * @returns {Promise<object>}
+   * @param {number} width - Static width. Warning: Can skew aspect ratio if height is incorrect
+   * @param {number} height - Static height. Warning: Can skew aspect ratio if width is incorrect
+   * @param {number} maxWidth - Maximum width. Automatically calculates the corresponding height maintaining aspect ratio
+   * @param {number} maxHeight - Maximum height. Automatically calculates the corresponding width maintaining aspect ratio
+   * @param {number} [quality=80] - jpg quality 0 - 100
+   * @param {string} [chromaSubsampling='4:4:4']
+   * @param {string} [tag] - Tagging the output with an arbitraty string e.g "thumbnail"
+   * @returns {Promise<object>} - Returns stats / info about the image resize operations carried out
    */
   async resize({
     buffer,
@@ -86,51 +78,69 @@ export default class ImageService {
     height,
     maxWidth,
     maxHeight,
+    tag,
   }) {
     const startTime = new Date();
-    const metaData = await ImageUtil.getMetaData(buffer);
-    const {
-      width: newWidth,
-      height: newHeight,
-    } = ImageUtil.calculateAspectRatioFit({
-      srcWidth: metaData.width,
-      srcHeight: metaData.height,
-      maxWidth,
-      maxHeight,
-    });
+    const metaDataInput = await ImageUtil.getMetaData(buffer);
 
-    const outputBuffer = await sharp(buffer)
-      .resize(width || newWidth, height || newHeight)
-      .jpeg({
-        quality,
-        chromaSubsampling,
-      })
-      .toBuffer();
+    let newWidth;
+    let newHeight;
 
+    if (width && height) {
+      newWidth = width;
+      newHeight = height;
+    } else {
+      const autoDimensions = ImageUtil.calculateAspectRatioFit({
+        srcWidth: metaDataInput.width,
+        srcHeight: metaDataInput.height,
+        maxWidth,
+        maxHeight,
+      });
+
+      newWidth = autoDimensions.width;
+      newHeight = autoDimensions.height;
+    }
+
+    let outputBuffer;
+
+    // Only resize the image if new dimensions are smaller than the original image dimensions
+    if (newWidth < metaDataInput.width && newHeight < metaDataInput.height) {
+      outputBuffer = await sharp(buffer)
+        .resize(newWidth, newHeight)
+        .jpeg({
+          quality,
+          chromaSubsampling,
+        })
+        .toBuffer();
+    } else {
+      outputBuffer = buffer; // Skip resize (avoid upscaling)
+    }
+
+    const metaDataOutput = await ImageUtil.getMetaData(outputBuffer);
     const prefix = `${new Date().getFullYear()}/${new Date().getMonth() + 1}`;
-    const key = `${outputFilename}-${newWidth}x${newHeight}.jpg`;
+    const key = `${outputFilename}-${metaDataOutput.width}x${metaDataOutput.height}.jpg`;
+
     const urls = await this.s3Service.putObject({
       buffer: outputBuffer,
       key,
       prefix,
     });
 
-    const { size } = await ImageUtil.getMetaData(outputBuffer);
-
     const meta = {
       ...urls,
       meta: {
         processingTime: `${((new Date() - startTime) / 1000).toFixed(2)} sec`,
-        sizeReduction: `${(((metaData.size - size) / metaData.size) * 100).toFixed(2)}%`,
+        sizeReduction: `${(((metaDataInput.size - metaDataOutput.size) / metaDataInput.size) * 100).toFixed(2)}%`,
+        tag,
         input: {
-          width: metaData.width,
-          height: metaData.height,
-          size: fileSize(metaData.size),
+          width: metaDataInput.width,
+          height: metaDataInput.height,
+          size: fileSize(metaDataInput.size),
         },
         output: {
-          width: newWidth,
-          height: newHeight,
-          size: fileSize(size),
+          width: metaDataOutput.width,
+          height: metaDataOutput.height,
+          size: fileSize(metaDataOutput.size),
         },
       },
     };
